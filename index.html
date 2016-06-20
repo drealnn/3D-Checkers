@@ -1,0 +1,800 @@
+<html>
+
+<head>
+	<script src="libs/three.js"></script>
+	<script src="loaders/OBJLoader.js"></script>
+	<script src="loaders/OBJMTLLoader.js"></script>
+    <script src="state.js"></script>
+	<script src="loaders/DDSLoader.js"></script>
+	<script src="loaders/MTLLoader.js"></script>
+    
+	
+<script id="worker" type="javascript/worker">
+
+var startBoardColors = 
+[
+1, -1, 1, -1, 1, -1, 1, -1,
+-1, 1, -1, 1, -1, 1, -1, 1,
+1, -1, 1, -1, 1, -1, 1, -1,
+-1, -1, -1, -1, -1, -1, -1, -1,
+-1, -1, -1, -1, -1, -1, -1, -1,
+-1, 0, -1, 0, -1, 0, -1, 0,
+0, -1, 0, -1, 0, -1, 0, -1,
+-1, 0, -1, 0, -1, 0, -1, 0
+];
+
+var startpiecetype = 
+[
+1, 0, 1, 0, 1, 0, 1, 0,
+0, 1, 0, 1, 0, 1, 0, 1,
+1, 0, 1, 0, 1, 0, 1, 0,
+0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,
+0, 1, 0, 1, 0, 1, 0, 1,
+1, 0, 1, 0, 1, 0, 1, 0,
+0, 1, 0, 1, 0, 1, 0, 1
+];
+
+var moveList = [];
+var boardColors;
+var piecetype = [];
+var currentComputerPiece;
+var opponentSquares = [];
+
+    function initChessGame()
+    {
+        boardColors = [];
+        piecetype = [];
+        boardColors = startBoardColors.slice();
+        piecetype = startpiecetype.slice();
+    }
+    
+    function checkRightDiagnal(square, row, col, color)
+    {
+        var xcolor = color^1;
+         // if the right diagnal is clear, you can move
+        if (color == 0 || piecetype[square] == 2)
+        {
+            if (boardColors[square - 7] == -1)
+                moveList.push(square - 7);
+
+            // if the right diagnal has an opponent piece 
+            else if (boardColors[square - 7] == xcolor && col < 6)
+            {
+                // if the right diagnol of the opponent piece is free, you can move
+                if (boardColors[square - 14] == -1)
+                {
+                    moveList.push(square - 14);
+                    // do something here to signal death of opponent
+                    var opponentSquare = {'position': square - 7, 'move': square - 14};
+                    opponentSquares.push(opponentSquare);
+                }
+            }
+        }
+        
+        if (color == 1 || piecetype[square] == 2) 
+        {
+            
+            // if the right diagnal is clear, you can move
+            if (boardColors[square + 7] == -1)
+                moveList.push(square + 7);
+
+            // if the right diagnal has an opponent piece 
+            else if (boardColors[square + 7] == xcolor && col > 1)
+            {
+                // if the right diagnol of the opponent piece is free, you can move
+                if (boardColors[square + 14] == -1)
+                {
+                    moveList.push(square + 14);
+                // do something here to signal death of opponent
+                var opponentSquare = {'position': square + 7, 'move': square + 14};
+                opponentSquares.push(opponentSquare);
+                }
+            }
+            
+        }
+    }
+    
+    function checkLeftDiagnal(square, row, col, color)
+    {
+         var xcolor = color^1;
+         // if the left diagnal is clear, you can move
+         //console.log(piecetype[square])
+        if (color == 0 || piecetype[square] == 2)
+        {
+            if (boardColors[square - 9] == -1)
+                moveList.push(square - 9);
+
+            else if (boardColors[square - 9] == xcolor && col > 1)
+            {
+                if (boardColors[square - 18] == -1)
+                {
+                    moveList.push(square - 18);
+                // do something here to signal death of opponent
+                var opponentSquare = {'position': square - 9, 'move': square - 18};
+                opponentSquares.push(opponentSquare);
+                }
+            }
+        }
+        if (color == 1 || piecetype[square] == 2)
+        {
+            // if the left diagnal is clear, you can move
+            
+                if (boardColors[square + 9] == -1)
+                    moveList.push(square + 9);
+               
+                else if (boardColors[square + 9] == xcolor && col < 6)
+                {
+                    if (boardColors[square + 18] == -1)
+                    {
+                        moveList.push(square + 18);
+                    // do something here to signal death of opponent
+                   var opponentSquare = {'position': square + 9, 'move': square + 18};
+                   opponentSquares.push(opponentSquare);
+                   }
+                }
+        }
+    }
+    
+    function getOnlyJumpMoves()
+    {
+        var temp = [];
+        if (opponentSquares.length > 0)
+        {
+            for (var i = 0; i < moveList.length; i++)
+            {
+                for (var j = 0; j < opponentSquares.length; j++)
+                {
+                    if (moveList[i] == opponentSquares[j].move)
+                        temp.push(moveList[i]);
+                }
+            }
+
+            moveList = [];
+            
+            moveList = temp.slice();
+            
+        }
+    }
+    
+    function checkIfKing(square)
+    {
+        var row = Math.floor(square/8);
+        var col = square % 8;
+        
+        console.log("The row is " + row);
+        if (piecetype[square] != 2)
+        {
+            if (row == 0 && boardColors[square] == 0)
+            {
+                piecetype[square] = 2;
+                console.log("human is king!");
+                return true;
+            }
+            else if (row == 7 && boardColors[square] == 1)
+            {
+                piecetype[square] = 2;
+                console.log("computer is king!");
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    function getLegalMoves(square)
+    {
+        moveList = [];
+        opponentSquares = [];
+        
+        
+        //console.log(square);
+        
+        if (square < 0 || square > 63)
+            return;
+        
+        var color = boardColors[square];
+        var xcolor = color^1;
+        
+        var row = Math.floor(square/8);
+        var col = square % 8;
+        
+        if (color == -1)
+        {
+            console.log("Something went wrong");
+        }
+
+        if (color < 0)
+            return;
+        
+        if (color == 0)
+        {
+            //console.log("We got here");
+            // check diagnals at the middle of the board
+            if (col > 0 && col < 7)
+            {
+                checkLeftDiagnal(square, row, col, color);
+                checkRightDiagnal(square, row, col, color);
+                
+            }
+        
+            
+            // check diagnals at the edges
+            else if (col == 0)
+            {
+                checkRightDiagnal(square, row, col, color);
+                if (piecetype[square] == 2)
+                    checkLeftDiagnal(square, row, col, color);
+                
+            }
+            else if (col == 7)
+            {
+                checkLeftDiagnal(square, row, col, color);
+                if (piecetype[square] == 2)
+                    checkRightDiagnal(square, row, col, color);
+               
+            }
+        }
+        else if (color == 1)
+        {
+            // check diagnals at the middle of the board
+            if (col > 0 && col < 7)
+            {
+                checkLeftDiagnal(square, row, col, color);
+                checkRightDiagnal(square, row, col, color);
+                
+               
+            }
+        
+            
+            // check diagnals at the edges
+            else if (col == 0)
+            {
+                checkLeftDiagnal(square, row, col, color);
+                if (piecetype[square] == 2)
+                    checkRightDiagnal(square, row, col, color);
+                
+               
+            }
+            else if (col == 7)
+            {
+                checkRightDiagnal(square, row, col, color);
+                if (piecetype[square] == 2)
+                    checkLeftDiagnal(square, row, col, color);
+            }
+        }
+        
+        getOnlyJumpMoves();
+        
+        
+        
+    }
+    
+    function computerTurn()
+    {
+        currentComputerPiece = null;
+        var enemyArray = [];
+        for (var i = 0; i < boardColors.length; i++)
+        {
+            if (boardColors[i] == 1)
+            {
+                enemyArray.push(i);
+                getLegalMoves(i);
+                if (opponentSquares.length > 0)
+                {
+                    var rand = Math.floor(Math.random() * moveList.length);
+                    var computerSquare = moveList[rand];
+                    currentComputerPiece = i;
+                    return computerSquare;
+                }
+        
+            }
+            
+        }
+        
+        
+        
+        do {
+            var random = Math.floor(Math.random() * enemyArray.length);
+            getLegalMoves(enemyArray[random]);
+            currentComputerPiece = enemyArray[random];
+            enemyArray.splice(random, 1);
+        }while (moveList.length == 0);
+        
+        //getLegalMoves(i);
+                
+        if (moveList.length > 0)
+        {
+            var rand = Math.floor(Math.random() * moveList.length);
+            var computerSquare = moveList[rand];
+           
+            return computerSquare;
+        }
+        
+        return -1;
+    }
+
+    self.onmessage = function(e) 
+	{      
+		// Do something
+        if (e.data.type == 'init')
+            initChessGame();
+        else if (e.data.type == 'getlegalmoves')
+        {
+            getLegalMoves(e.data.square);
+            self.postMessage({'type':'getlegalmoves','moveList':moveList, 'opponentSquares':opponentSquares});
+        }
+        else if (e.data.type == 'movepiece')
+        {
+            var src = e.data.src;
+            var dst = e.data.dst;
+            
+            //console.log(boardColors);
+            
+            boardColors[dst] = boardColors[src];
+            boardColors[src] = -1;
+            
+            piecetype[dst] = piecetype[src];
+            piecetype[src] = 0;
+            
+            var isKing = checkIfKing(dst);
+            self.postMessage({'type':'movepiece', 'isking':isKing, 'square':dst});
+            //console.log("The source is :" + src + "The dest is :" + dst);
+            
+        }
+        else if (e.data.type == 'removepiece')
+        {
+            var src = e.data.src;
+            boardColors[src] = -1;
+            piecetype[src] = 0;
+        }
+        else if (e.data.type == 'computerturn')
+        {
+            var squareToMove = computerTurn();
+            var computerSquare = currentComputerPiece;
+            self.postMessage({'type':'computerturn', 'computersquare':computerSquare, 'squaretomove':squareToMove, 'opponentSquares':opponentSquares});
+        }
+		
+		// Possibly call self.postMessage({'type':'getlegalmoves','movelist':movelist});
+	}
+</script>
+	
+</head>
+
+<body>
+
+<script>
+	var renderer;
+	var scene;
+	var camera;
+	var plane;
+	
+	var squaretiles = [];
+	var worker;
+    var moveList = [];
+    var opponentSquares = [];
+	
+	//keyboard = new THREEx.KeyboardState();
+
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2();
+	var selectedobject = null;
+	var offset = new THREE.Vector3();
+			
+	var explode, one, two, three, four, five;
+    var illegal, jump, space, king, king2;
+    
+    
+    
+    
+	function loadSounds()
+	{
+		explode = new Audio("sounds/Explosion.mp3");
+		one = new Audio("sounds/1.mp3");
+		two = new Audio("sounds/2.mp3");
+		three = new Audio("sounds/3.mp3");
+		four = new Audio("sounds/4.mp3");
+		five = new Audio("sounds/5.mp3");
+        illegal = new Audio("sounds/illegal.wav");
+        jump = new Audio("sounds/jump.wav");
+        space = new Audio("sounds/space.wav");
+        king = new Audio("sounds/king.wav");
+        king2 = new Audio("sounds/king2.wav");
+	}
+	
+	function init()
+	{
+        gameState.init();
+        
+        var tex = THREE.ImageUtils.loadTexture('images/woodtexture.jpg');
+        var box = new THREE.Mesh(new THREE.BoxGeometry(28*8, 16, 20), new THREE.MeshLambertMaterial({map:tex}));
+        box.position.y += 12*8 + 8;
+        scene.add(box);
+        
+        var box2 = new THREE.Mesh(new THREE.BoxGeometry(28*8, 16, 20), new THREE.MeshLambertMaterial({map:tex}));
+        box2.position.y -= 12*8 + 8;
+        scene.add(box2);
+        
+        var box3 = new THREE.Mesh(new THREE.BoxGeometry(28*8, 16, 20), new THREE.MeshLambertMaterial({map:tex}));
+        box3.position.x -= 12*8 + 8;
+        box3.rotation.z -= Math.PI/2;
+        scene.add(box3);
+        
+        var box4 = new THREE.Mesh(new THREE.BoxGeometry(28*8, 16, 20), new THREE.MeshLambertMaterial({map:tex}));
+        box4.position.x += 12*8 + 8;
+        box4.rotation.z -= Math.PI/2;
+        scene.add(box4);
+        
+        
+		
+        renderer.domElement.addEventListener( 'mousemove', onDocumentMouseMove, false );
+		renderer.domElement.addEventListener( 'mousedown', onDocumentMouseDown, false );
+		renderer.domElement.addEventListener( 'mouseup', onDocumentMouseUp, false );
+        
+		worker.onmessage = function(e) 
+		{
+            if (e.data.type == 'getlegalmoves')
+            {
+                moveList = [];
+                opponentSquares = [];
+                
+                for (var i = 0; i < e.data.opponentSquares.length; i++)
+                {
+                    opponentSquares.push(e.data.opponentSquares[i]);
+                }
+                
+                for (var i = 0; i < e.data.moveList.length; i++)
+                {
+                    moveList.push(reverseSquare(e.data.moveList[i]));
+                    
+                    squaretiles[reverseSquare(e.data.moveList[i])].material.color.set(0xff0000);
+                }
+                //console.log(e.data.moveList.length);
+                //console.log(moveList);
+            }
+            else if (e.data.type == 'movepiece')
+            {
+                if (e.data.isking)
+                {
+                    var currentpiece = squaretiles[reverseSquare(e.data.square)].piece;
+                    
+                    if (squaretiles[reverseSquare(e.data.square)].piece.name.indexOf("Piece-red") >= 0)
+                    {
+                        king.play();
+                        currentpiece.material = new THREE.MeshLambertMaterial({map:THREE.ImageUtils.loadTexture('images/red3-copy.jpg')});
+                    }
+                    else
+                    {
+                        king2.play();
+                        currentpiece.material = new THREE.MeshLambertMaterial({map:THREE.ImageUtils.loadTexture('images/black2-copy.jpg')});
+                    }
+                }
+            }
+            else if (e.data.type == 'computerturn')
+            {
+                opponentSquares = [];
+                
+                for (var i = 0; i < e.data.opponentSquares.length; i++)
+                {
+                    opponentSquares.push(e.data.opponentSquares[i]);
+                }
+                gameState.performComputerTurn(reverseSquare(e.data.computersquare), reverseSquare(e.data.squaretomove));
+            }
+		}		
+		
+        
+		render();
+	}
+	
+	var Colors = ['black', 'white'];
+	function createCheckerBoard()
+	{
+		var SquareWidth = 24, SquareHeight = 24;
+		
+		// Load the two textures.
+		var DarkTexture = THREE.ImageUtils.loadTexture('images/grey.jpg');
+		var LightTexture = THREE.ImageUtils.loadTexture('images/redtile2.jpg');
+		
+		var SquareGeo = new THREE.BoxGeometry( SquareWidth, SquareHeight, 1 );
+
+		for( var row=0; row<8; row++ )
+		{
+			var alternate = row & 1;
+			for( var col=0; col<8; col++ )
+			{
+				var mesh;
+				if( alternate == 0 )
+				{
+					var LightSquareMat = new THREE.MeshLambertMaterial({map:LightTexture});
+					mesh = new THREE.Mesh( SquareGeo, LightSquareMat );
+				}
+				else
+				{
+					var DarkSquareMat = new THREE.MeshLambertMaterial({map:DarkTexture});
+					mesh = new THREE.Mesh( SquareGeo, DarkSquareMat );
+				}
+				alternate ^= 1;
+				mesh.position.x = -( SquareWidth * 3.5 ) + col * SquareWidth;
+				mesh.position.y = -( SquareHeight * 3.5 ) + row * SquareHeight;
+				
+				mesh.name = "Row" + row + "-Col" + col + "-Color" + Colors[alternate];
+				squaretiles.push( mesh );
+				scene.add( mesh );
+			}
+		}
+		
+	}
+    
+    function onButtonClick()
+    {
+        console.log("button works");
+        gameState.restartGame();
+    }
+    
+    function reverseSquare( square )
+	{
+		var row = 7 - Math.floor( square / 8 );
+		var col = square % 8;
+		return( row * 8 + col );
+	}
+
+	function placeSinglePieceOnBoard( object, row,col )
+	{
+		object.position.x = -24 * 3 + col * 24 - 12;
+		object.position.y = -24 * 3 - 12 + row * 24;
+		scene.add( object );
+	}
+	
+	function snapSinglePieceOnBoard( object, square )
+	{
+        if (object == null)
+        {
+            //console.log("null object!");
+            return;
+        }
+		var row = Math.floor( square / 8 );
+		var col = square % 8
+		object.position.x = -24 * 3 + col * 24 - 12;
+		object.position.y = -24 * 3 - 12 + row * 24;
+        object.position.z = 0;
+	}
+	
+	function generatePieces()
+	{
+        var loader = new THREE.JSONLoader();
+        
+        var geo = new THREE.CylinderGeometry(10, 10, 10, 32);
+        var rmat = new THREE.MeshLambertMaterial({map:THREE.ImageUtils.loadTexture('images/red3.jpg')});
+        var bmat = new THREE.MeshLambertMaterial({map:THREE.ImageUtils.loadTexture('images/black2.jpg')});
+        
+        // generate 12 white pieces
+        for (var i = 0; i < 3; i++)
+        {
+            for (var j = 0; j < 8; j++)
+            {
+                if (!isWhiteSquare(i*8 + j) )
+                {
+                    var robj = new THREE.Mesh(geo, rmat);
+                    robj.rotation.x -= Math.PI / 2;
+                    robj.name = "Piece-red";
+                    
+                    squaretiles[i*8 + j].piece = robj;
+                    
+                    placeSinglePieceOnBoard(robj, i, j);
+                }
+            }
+            
+        }
+        
+        // generate 12 black pieces
+        for (var i = 5; i < 8; i++)
+        {
+            for (var j = 0; j < 8; j++)
+            {
+                if (!isWhiteSquare(i*8 + j) )
+                {
+                    var bobj = new THREE.Mesh(geo, bmat);
+                    bobj.rotation.x -= Math.PI / 2;
+                    bobj.name = "Piece-black";
+                    
+                    squaretiles[i*8 + j].piece = bobj;
+                    
+                    placeSinglePieceOnBoard(bobj, i, j);
+                }
+            }
+            
+        }
+        
+	}
+	
+	function render()
+	{
+        if (gameState.currentTurn == 'computer')
+        {
+            worker.postMessage({'type':'computerturn'});
+            gameState.currentTurn = null;
+        }
+		requestAnimationFrame( render );
+		renderer.render( scene, camera );
+	}
+
+	function onDocumentMouseMove( event ) 
+	{
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = -( event.clientY / window.innerHeight ) * 2 + 1;
+		
+		if( selectedobject != null )
+		{
+			var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
+			vector.unproject( camera );
+
+			raycaster.set( camera.position, vector.sub( camera.position ).normalize() );
+			
+			var intersects = raycaster.intersectObject( plane );
+			selectedobject.position.copy( intersects[0].point );
+		}
+
+	}
+
+	var startingsquare;
+	function onDocumentMouseDown( event ) 
+	{
+		event.preventDefault();
+		
+		var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
+		//vector.unproject( camera );
+
+		//raycaster.set( camera.position, vector.sub( camera.position ).normalize() );
+		raycaster.setFromCamera(vector, camera);
+		var intersects = raycaster.intersectObjects( scene.children, true );
+        
+        
+        if (gameState.currentTurn == 'player')
+        {
+            if ( intersects.length > 0 ) 
+            {
+                for( var i=0; i<intersects.length; i++ )
+                {
+                    var name = intersects[i].object.name;
+                    //console.log(name.indexOf("-Color"));
+
+                    if( name.indexOf( "Piece-red" ) >= 0 )
+                    {
+                        selectedobject = intersects[i].object;
+
+                        startingsquare = findSquare();
+
+                        worker.postMessage({'type':'getlegalmoves', 'square':reverseSquare(startingsquare)});
+
+                        break;
+                    }
+
+                }
+
+            }
+        }
+       // console.log(startingsquare);
+       
+	}
+	
+	function findSquare()
+	{
+		var square = -1;
+		//console.log("This function is being run");
+        var vec = new THREE.Vector3(mouse.x, mouse.y, 1);
+        
+        raycaster.setFromCamera(vec, camera);
+       
+        
+		var intersects = raycaster.intersectObjects( scene.children, true );
+		//console.log(intersects.length);
+        if ( intersects.length > 0 ) 
+		{
+			for( var i=0; i<intersects.length; i++ )
+			{
+				intersects[i].object;
+				var name = intersects[i].object.name;
+                
+				if( name.indexOf( "-Color" ) >= 0 && name.indexOf( "Piece" ) < 0 )
+				{
+					var row = name.substring( 3, 4 );
+					var col = name.substring( 8, 9 );
+					
+					square = parseInt( row ) * 8 + parseInt( col );
+					break;
+				}
+			}
+		}
+		
+		return( square );
+	}
+    
+	
+	function isWhiteSquare( square )
+	{
+        var name = squaretiles[square].name;
+        
+        if (name.indexOf("-Color") >= 0 )
+        {
+            //console.log(name.substring(15, 16));
+            var color = name.substring(15, 16) == 'w' ? 0 : 1;
+        }
+        
+        return !color;
+	}
+    
+	
+	function onDocumentMouseUp( event ) 
+	{
+		event.preventDefault();
+        
+        var currentSquare = findSquare();
+        var hasjump = false;
+        
+         var legalmovemade = false;
+        if (gameState.currentTurn = "player")
+        {
+            for (var i = 0; i < moveList.length; i++)
+            {
+                if (currentSquare == moveList[i])
+                {
+                    legalmovemade = true;
+                    snapSinglePieceOnBoard(selectedobject, currentSquare);
+                    worker.postMessage({'type':'movepiece', 'src': reverseSquare(startingsquare), 'dst': reverseSquare(currentSquare)});
+
+                    squaretiles[currentSquare].piece = squaretiles[startingsquare].piece;
+                    squaretiles[startingsquare].piece = null;
+
+
+                    for (var j = 0; j < opponentSquares.length; j++)
+                    {
+                        if ( currentSquare == reverseSquare(opponentSquares[j].move) )
+                        {
+                            hasjump = true;
+                            console.log("we are removing an opponent");
+                            console.log("postion of opponent: " + reverseSquare(opponentSquares[j].position));
+                            console.log(squaretiles[reverseSquare(opponentSquares[j].position)].piece);
+                            scene.remove(squaretiles[reverseSquare(opponentSquares[j].position)].piece);
+                            squaretiles[reverseSquare(opponentSquares[j].position)].piece = null;
+                            worker.postMessage({'type':'removepiece', 'src': opponentSquares[j].position});
+                            jump.play();
+                        }
+                    } // end for
+                    
+                    if (!hasjump)
+                        space.play();
+                    
+                    gameState.currentTurn = null;
+                    setTimeout(newTurn, 500);
+                    break;
+                }
+            } // end for
+
+            if (!legalmovemade)
+            {
+                snapSinglePieceOnBoard(selectedobject, startingsquare);
+                illegal.play();
+            }
+        }
+       
+        
+		selectedobject = null;
+        moveList = [];
+        
+        for(var i = 0; i < 64; i++)
+        {
+            squaretiles[i].material.color.set(0xffffff);
+        }
+	}
+    
+    function newTurn()
+    {
+        gameState.currentTurn = "computer";
+    }
+	
+	window.onload = init;
+</script>
+
+</body>
+
+</html>
